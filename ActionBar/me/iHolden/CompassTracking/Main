@@ -1,0 +1,174 @@
+// BetterCompass - iHolden //
+package me.iHolden.CompassTracker;
+
+import java.util.HashMap;
+import java.util.Map.Entry;
+import java.util.logging.Logger;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.Server;
+import org.bukkit.Sound;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.PluginManager;
+import org.bukkit.plugin.java.JavaPlugin;
+import com.connorlinfoot.actionbarapi.ActionBarAPI;
+
+public class Main extends JavaPlugin implements Listener {
+	  Logger myPluginLogger = Bukkit.getLogger();
+  private HashMap<Player, Player> compassTargets = new HashMap();
+  
+  @EventHandler
+  public void onWelcome(PlayerJoinEvent e) {
+	  for(Player p : Bukkit.getOnlinePlayers()){
+	  if(p.isOp()) {
+		  p.sendMessage(ChatColor.GOLD + "Server running BetterCompass v1.4 (This message was sent to OP's only).");
+	  	}
+	  }
+  }
+  public void onEnable()
+  {
+    PluginManager pm = getServer().getPluginManager();
+    pm.registerEvents(this, this);
+    Server server = getServer();
+    ConsoleCommandSender consoleMessage = server.getConsoleSender();
+    consoleMessage.sendMessage(ChatColor.GREEN + "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
+    consoleMessage.sendMessage("");
+    consoleMessage.sendMessage(ChatColor.AQUA + "BetterCompass ENABLED!");
+    consoleMessage.sendMessage(ChatColor.AQUA + "Version 1.4");
+    consoleMessage.sendMessage(ChatColor.AQUA + "By iHolden");
+    consoleMessage.sendMessage("");
+    consoleMessage.sendMessage(ChatColor.GREEN + "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
+  }
+  public void onDisable()
+  {
+	  Server server = getServer();
+	  ConsoleCommandSender consoleMessage = server.getConsoleSender();
+	    consoleMessage.sendMessage(ChatColor.GREEN + "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
+	    consoleMessage.sendMessage("");
+	    consoleMessage.sendMessage(ChatColor.AQUA + "BetterCompass DISABLED!");
+	    consoleMessage.sendMessage(ChatColor.AQUA + "Version 1.4");
+	    consoleMessage.sendMessage(ChatColor.AQUA + "By iHolden");
+	    consoleMessage.sendMessage("");
+	    consoleMessage.sendMessage(ChatColor.GREEN + "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
+  }
+  
+  @EventHandler
+  public void onExit(PlayerQuitEvent e)
+  {
+    for (Entry<Player, Player> entry : this.compassTargets.entrySet())
+    {
+      if (entry.getKey() == e.getPlayer()) {
+        this.compassTargets.remove(entry.getKey());
+      }
+      if (entry.getValue() == e.getPlayer())
+      {
+        ((Player)entry.getKey()).sendMessage(ChatColor.DARK_RED + "Your target has left the game, your compass is no longer tracking anyone.");
+        this.compassTargets.remove(entry.getKey());
+      }
+    }
+  }
+  
+  @EventHandler
+  public void onPlayerInteract(PlayerInteractEvent e)
+  {
+    Player ply = e.getPlayer();
+    if (ply.hasPermission("bettercompass.use"));
+    Player targ = null;
+    if (((e.getAction().equals(Action.RIGHT_CLICK_AIR)) || (e.getAction().equals(Action.RIGHT_CLICK_BLOCK))) && (ply.getItemInHand().getType().equals(Material.COMPASS)))
+    {
+      Player[] arrayOfPlayer;
+      int j = (arrayOfPlayer = Bukkit.getOnlinePlayers()).length;
+      for (int i = 0; i < j; i++)
+      {
+        Player player = arrayOfPlayer[i];
+        if ((ply.getWorld() == player.getWorld()) && 
+          (ply != player) && 
+          ((targ == null) || (ply.getLocation().distance(player.getLocation()) < targ.getLocation().distance(ply.getLocation()))) && 
+          (player.getLocation().distance(ply.getLocation()) > 30.0D)) {
+          targ = player;
+        }
+      }
+      if (targ == null)
+      {
+        ActionBarAPI.sendActionBar(ply.getPlayer(), ChatColor.GREEN + "" + ChatColor.BOLD + "" + "No target. Do /compass for info!");
+        //BossBarAPI.setMessage(ply.getPlayer(), ChatColor.GREEN + "" + ChatColor.BOLD + "" + "No target. Do /compass for info!", 10);
+        ply.playSound(ply.getLocation(), Sound.WOOD_CLICK, 1, 1);
+        return;    
+      }
+      ply.sendMessage(ChatColor.GRAY + "Targeting " + ChatColor.GREEN + targ.getName() + "!");
+      ActionBarAPI.sendActionBar(ply.getPlayer(), ChatColor.GREEN + "Target: " + ChatColor.WHITE + targ.getName());
+      ply.playSound(ply.getLocation(), Sound.SHOOT_ARROW, 1, 1);
+      this.compassTargets.put(ply, targ);
+    }
+    else if (((e.getAction().equals(Action.LEFT_CLICK_AIR)) || (e.getAction().equals(Action.LEFT_CLICK_BLOCK))) && (ply.getItemInHand().getType().equals(Material.COMPASS)))
+    {
+      if (this.compassTargets.get(ply) != null) {
+        ActionBarAPI.sendActionBar(ply.getPlayer(), ChatColor.GREEN + "Your target is " + ply.getLocation().distance(((Player)this.compassTargets.get(ply)).getLocation()) + " blocks away.");
+         ply.playSound(ply.getLocation(), Sound.ANVIL_LAND, 1, 1);
+      } else {
+        ActionBarAPI.sendActionBar(ply.getPlayer(), ChatColor.BLUE + "" + ChatColor.BOLD + "" + "Your compass isn't tracking anyone!");
+        ply.playSound(ply.getLocation(), Sound.ITEM_BREAK, 1, 1);
+      }
+    }
+  }
+  
+  @EventHandler
+  public void onMove(PlayerMoveEvent e)
+  {
+    if (this.compassTargets.get(e.getPlayer()) != null) {
+      e.getPlayer().setCompassTarget(((Player)this.compassTargets.get(e.getPlayer())).getLocation());
+    }
+    Player[] arrayOfPlayer;
+    int j = (arrayOfPlayer = Bukkit.getOnlinePlayers()).length;
+    for (int i = 0; i < j; i++)
+    {
+      Player ply = arrayOfPlayer[i];
+      
+      if (ply.hasPermission("bettercompass.use"));
+      Player compassTarget = (Player)this.compassTargets.get(ply);
+      if (compassTarget == e.getPlayer()) {
+        if (ply.getWorld() == e.getPlayer().getWorld())
+        {
+          if (ply.getLocation().distance(e.getPlayer().getLocation()) <= 30.0D)
+          {
+            ActionBarAPI.sendActionBar(ply.getPlayer(), ChatColor.GREEN + "Your target is close");
+            this.compassTargets.remove(ply);
+          }
+          ply.setCompassTarget(e.getPlayer().getLocation());
+        }
+        else
+        {
+          ActionBarAPI.sendActionBar(ply.getPlayer(), ChatColor.BLUE + "" + ChatColor.BOLD + "" + "Your target has changed world, and is no longer available");
+          this.compassTargets.remove(ply);
+        }
+      }
+    }
+  }
+  	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+	    if (cmd.getName().equalsIgnoreCase("compass" )) {
+	        Player p = (Player)sender;
+	        if (p.hasPermission("bettercompass.use"))
+	        if (sender instanceof Player){
+	            p.sendMessage(ChatColor.BLUE + "Wield a compass, right click it to track players!");
+	            p.playSound(p.getLocation(), Sound.ARROW_HIT, 1F, 1F);
+	            return true;
+	        }
+	    }
+	return false;
+	}
+    {
+  }
+}
+// Congrats, you made it to the bottom! //
